@@ -107,11 +107,11 @@ void Graph::preflow(int s)
 }
 
 // function that returns index of overflowing Vertex
-int overflowvertex(vector<Vertex>& ver)
+int overflowvertex(vector<Vertex>& ver, int s, int t)
 {
-    for(int i = 1; i < ver.size() - 1; i++)
+    for(int i = 0; i < ver.size(); i++)
     {
-        if(ver[i].ex_flow > 0)
+        if( i != s && i != t && ver[i].ex_flow > 0 )
         return i;
     }
 
@@ -206,17 +206,17 @@ int Graph::maxflow(int s, int t)
 {
     preflow(s);
 
-    while(overflowvertex(vertex) != -1)
+    while(overflowvertex(vertex,s,t) != -1)
     {
-        int u = overflowvertex(vertex);
+        int u = overflowvertex(vertex,s,t);
         if(!push(u))
         {
             relabel(u);
         }
     }
 
-    // vertex.back() returns final vertex, whose ex_flow will be final maximum flow
-    return vertex.back().ex_flow;
+    // ex_flow of the sink will be final maximum flow
+    return vertex[t].ex_flow;
 }
 
 // Driver program to test above functions 
@@ -238,7 +238,7 @@ int main()
     g.addedge(4, 5, 4); 
   
     // Initialize source and sink 
-    int s = 0, t = 4; 
+    int s = 0, t = 5; 
   
     cout << "Maximum flow is " << g.maxflow(s, t); 
     return 0; 
