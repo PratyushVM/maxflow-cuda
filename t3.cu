@@ -1,8 +1,8 @@
 #include<cuda.h>
 #include<bits/stdc++.h>
 
-#define number_of_nodes atoi(argv[1])
-#define number_of_edges atoi(argv[2])
+#define number_of_nodes 6
+#define number_of_edges 10
 #define threads_per_block 256
 #define number_of_blocks_nodes ((number_of_nodes/threads_per_block) + 1)
 #define number_of_blocks_edges ((number_of_edges/threads_per_block) + 1)
@@ -19,6 +19,35 @@ struct Graph
     int *excess_flow;   // array containing excess flow values of the vertices
     pii *adj_mtx;    // array containing the adjacency matrix of the graph as (residual capacity,capacity) pair edges
 };
+
+void readgraph(Graph *cpu_graph, int V, int E)
+{
+    for(int i = 0; i < V; i++)
+    {
+        for(int j = 0; j < V; j++)
+        {
+            cpu_graph->adj_mtx[i*V + j] = std::make_pair(0,0);
+        }
+    }
+
+    FILE *fp = fopen("edgelist.txt","r");
+
+    char buf1[10],buf2[10],buf3[10];
+    int e1,e2,cp;
+
+    for(int i = 0; i < E; i++)
+    {
+        fscanf(fp,"%s",buf1);
+        fscanf(fp,"%s",buf2);
+        fscanf(fp,"%s",buf3);
+
+        e1 = atoi(buf1);
+        e2 = atoi(buf2);
+        cp = atoi(buf3);
+
+        cpu_graph->adj_mtx[e1*V + e2] = std::make_pair(cp,cp);
+    }
+}
 
 void preflow(Graph *cpu_graph, int source)
 {
@@ -38,7 +67,7 @@ __global__ void push_relabel_kernel(Graph *gpu_graph)
 {
     int cycle = KERNEL_CYCLES;
     unsigned int u = (blockIdx.x*blockDim.x) + threadIdx.x;
-    int e1,e2,h1,h2,v,v1,d;
+    int e1,h1,h2,v,v1,d;
 
     while(cycle > 0)
     {
@@ -67,10 +96,10 @@ __global__ void push_relabel_kernel(Graph *gpu_graph)
             if(gpu_graph->height[u] > h1)
             {
                 d = std::min(e1,(gpu_graph->adj_mtx[u*gpu_graph->V + v].first));
-                atomicAdd((gpu_graph->adj_mtx[v1*gpu_graph->V + u].first), d);
-                atomicSub((gpu_graph->adj_mtx[u*gpu_graph->V + v1].first), d);
-                atomicAdd(gpu_graph->excess_flow[v1], d);
-                atomicSub(gpu_graph->excess_flow[u], d);
+                atomicAdd(&(gpu_graph->adj_mtx[v1*gpu_graph->V + u].first), d);
+                atomicSub(&(gpu_graph->adj_mtx[u*gpu_graph->V + v1].first), d);
+                atomicAdd(&(gpu_graph->excess_flow[v1]), d);
+                atomicSub(&(gpu_graph->excess_flow[u]), d);
             }
             else
             {
@@ -100,7 +129,7 @@ void global_relabel(Graph *cpu_graph, int source, int sink)
                     cpu_graph->excess_flow[u] -= (cpu_graph->adj_mtx[ind].first);
                     cpu_graph->excess_flow[v] += (cpu_graph->adj_mtx[ind].first);
                     cpu_graph->adj_mtx[ind_trans].first += (cpu_graph->adj_mtx[ind].first);
-                    cpu_graph->adj_mtx[ind] = 0; 
+                    cpu_graph->adj_mtx[ind].first = 0; 
                 }
 
             }
@@ -126,7 +155,7 @@ void global_relabel(Graph *cpu_graph, int source, int sink)
 
             for(int i = 0; i < cpu_graph->V; i++)
             {
-                if(cpu_graph->adj_mtx[x*cpu_graph->V + i].f > 0 && !mark[i])
+                if(cpu_graph->adj_mtx[x*cpu_graph->V + i].first > 0 && !mark[i])
                 {
                     mark[i] = true;
                     cpu_graph->height[i] = level - 1;
@@ -152,6 +181,7 @@ void push_relabel(Graph *cpu_graph, Graph *gpu_graph, int source, int sink)
 {
     while(cpu_graph->excess_flow[source] + cpu_graph->excess_flow[sink] < cpu_graph->excess_total)
     {
+        //printf("In while\n");
         cudaMemcpy(gpu_graph->height,cpu_graph->height,gpu_graph->V*sizeof(int),cudaMemcpyHostToDevice);
         
         push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(gpu_graph);
@@ -206,9 +236,11 @@ int main(int argc, char **argv)
     cpu_graph->adj_mtx = cpu_adj_mtx;
 
     // readgraph() - add capacity values to cpu_adj_mtx
+    readgraph(cpu_graph,V,E);
 
     // time start
 
+    // invoking the preflow function 
     preflow(cpu_graph,source);
 
     // copying the graph from host memory to CUDA device global memory
@@ -222,6 +254,7 @@ int main(int argc, char **argv)
     cudaMemcpy(&(gpu_graph->excess_flow),&gpu_excess_flow,sizeof(int*),cudaMemcpyHostToDevice);
     cudaMemcpy(&(gpu_graph->adj_mtx),&gpu_adj_mtx,sizeof(pii*),cudaMemcpyHostToDevice);
 
+    // invoking the push_relabel host function
     push_relabel(cpu_graph,gpu_graph,source,sink);
 
     // copying the graph from the CUDA device global memory back to host memory
@@ -235,7 +268,7 @@ int main(int argc, char **argv)
     cpu_graph->excess_flow = cpu_excess_flow;
     cpu_graph->adj_mtx = cpu_adj_mtx;
 
-    // print max_flow
+    // printing maximum flow of the flow network
     printf("The maximum flow of the flow network is %d\n",cpu_graph->excess_flow[sink]);
 
     // time end
