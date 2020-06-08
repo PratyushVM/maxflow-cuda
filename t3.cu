@@ -26,7 +26,8 @@ void readgraph(Graph *cpu_graph, int V, int E)
     {
         for(int j = 0; j < V; j++)
         {
-            cpu_graph->adj_mtx[i*V + j] = std::make_pair(0,0);
+            cpu_graph->adj_mtx[i*V + j].first = 0;
+            cpu_graph->adj_mtx[i*V + j].second = 0;
         }
     }
 
@@ -45,7 +46,19 @@ void readgraph(Graph *cpu_graph, int V, int E)
         e2 = atoi(buf2);
         cp = atoi(buf3);
 
-        cpu_graph->adj_mtx[e1*V + e2] = std::make_pair(cp,cp);
+        cpu_graph->adj_mtx[e1*V + e2].first = cp;
+        cpu_graph->adj_mtx[e1*V + e2].second = cp;
+    }
+
+    // printing values to check
+    printf("Initial adj mtx\n");
+    for(int i=0;i<cpu_graph->V;i++)
+    {
+        for(int j=0;j<cpu_graph->V;j++)
+        {
+            printf("%d/%d ",cpu_graph->adj_mtx[i*cpu_graph->V + j].first,cpu_graph->adj_mtx[i*cpu_graph->V + j].second);
+        }
+        printf("\n");
     }
 }
 
@@ -54,12 +67,28 @@ void preflow(Graph *cpu_graph, int source)
     for(int i = 0; i < cpu_graph->V; i++)
     {
         cpu_graph->height[i] = 0;
-        cpu_graph->excess_flow[i] = 0;        
+        cpu_graph->excess_flow[i] = 0;
+        
+        if(cpu_graph->adj_mtx[source*cpu_graph->V + i].second > 0)
+        {
+            cpu_graph->adj_mtx[source*cpu_graph->V + i].first = 0;
+            cpu_graph->excess_flow[i] += cpu_graph->adj_mtx[source*cpu_graph->V + i].second;
+            cpu_graph->excess_total += cpu_graph->excess_flow[i];
+        }        
     }
 
-    cpu_graph->height[source] = cpu_graph->V;
-    cpu_graph->excess_flow[source] = INF;
-    cpu_graph->excess_total = INF;
+    cpu_graph->height[source] = cpu_graph->V;   
+    
+    // printing values to check
+    printf("\nAdj mtx after preflow\n");
+    for(int i=0;i<cpu_graph->V;i++)
+    {
+        for(int j=0;j<cpu_graph->V;j++)
+        {
+            printf("%d/%d ",cpu_graph->adj_mtx[i*cpu_graph->V + j].first,cpu_graph->adj_mtx[i*cpu_graph->V + j].second);
+        }
+        printf("\n");
+    }
 
 }
 
@@ -67,6 +96,7 @@ __global__ void push_relabel_kernel(Graph *gpu_graph)
 {
     int cycle = KERNEL_CYCLES;
     unsigned int u = (blockIdx.x*blockDim.x) + threadIdx.x;
+    //printf("%d \n",u);
     int e1,h1,h2,v,v1,d;
 
     while(cycle > 0)
@@ -80,7 +110,7 @@ __global__ void push_relabel_kernel(Graph *gpu_graph)
             {
                 int ind = (gpu_graph->V*u) + i;
 
-                if(gpu_graph->adj_mtx[ind].second - gpu_graph->adj_mtx[ind].first > 0)
+                if(gpu_graph->adj_mtx[ind].first > 0)
                 {
                     v = i;
                     h2 = gpu_graph->height[i];
@@ -105,7 +135,39 @@ __global__ void push_relabel_kernel(Graph *gpu_graph)
             {
                 gpu_graph->height[u] = h1 + 1;
             }
+
+            //
+            // printing values to check
+            //
+            if(u == 1)
+            {
+            printf("After iteration %d\n",gpu_graph->V - cycle);
+            printf("Height :\n");
+            for(int i=0;i<gpu_graph->V;i++)
+            {
+                printf("%d ",gpu_graph->height[i]);
+            }
+            printf("\nExcess flow :\n");
+            for(int i=0;i<gpu_graph->V;i++)
+            {
+                printf("%d ",gpu_graph->excess_flow[i]);
+            }
+            printf("\nAdj mtx after iteration %d :\n",KERNEL_CYCLES - cycle);
+            for(int i=0;i<gpu_graph->V;i++)
+            {
+                for(int j=0;j<gpu_graph->V;j++)
+                {
+                    printf("%d/%d ",gpu_graph->adj_mtx[i*gpu_graph->V + j].first,gpu_graph->adj_mtx[i*gpu_graph->V + j].second);
+                }
+                printf("\n");
+            }
+            }
+            //
+            //
+            //
         }
+
+        //__syncthreads();
 
         cycle = cycle - 1;
 
@@ -177,21 +239,22 @@ void global_relabel(Graph *cpu_graph, int source, int sink)
     
 }
 
-void push_relabel(Graph *cpu_graph, Graph *gpu_graph, int source, int sink)
+void push_relabel(Graph *cpu_graph, Graph *gpu_graph, int source, int sink, int *gpu_height, int *gpu_excess_flow, pii *gpu_adj_mtx)
 {
+    
     while(cpu_graph->excess_flow[source] + cpu_graph->excess_flow[sink] < cpu_graph->excess_total)
     {
-        //printf("In while\n");
-        cudaMemcpy(gpu_graph->height,cpu_graph->height,gpu_graph->V*sizeof(int),cudaMemcpyHostToDevice);
-        
+        cudaMemcpy(gpu_height,cpu_graph->height,(cpu_graph->V)*sizeof(int),cudaMemcpyHostToDevice);
+
         push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(gpu_graph);
-        
-        cudaMemcpy(cpu_graph->adj_mtx,gpu_graph->adj_mtx,cpu_graph->V*cpu_graph->V*sizeof(pii),cudaMemcpyDeviceToHost);
-        cudaMemcpy(cpu_graph->height,gpu_graph->height,cpu_graph->V*sizeof(int),cudaMemcpyDeviceToHost);
-        cudaMemcpy(cpu_graph->excess_flow,gpu_graph->excess_flow,cpu_graph->V*sizeof(int),cudaMemcpyDeviceToHost);
-        
-        global_relabel(cpu_graph,source,sink);
+
+        cudaMemcpy(cpu_graph->adj_mtx,gpu_adj_mtx,cpu_graph->V*cpu_graph->V*sizeof(pii),cudaMemcpyDeviceToHost);
+        cudaMemcpy(cpu_graph->height,gpu_height,cpu_graph->V*sizeof(int),cudaMemcpyDeviceToHost);
+        cudaMemcpy(cpu_graph->excess_flow,gpu_excess_flow,cpu_graph->V*sizeof(int),cudaMemcpyDeviceToHost);
+
+        //global_relabel(cpu_graph,source,sink);
     }
+    printf("maxflow : %d\n",cpu_graph->excess_flow[sink]);
 }
 
 
@@ -255,7 +318,10 @@ int main(int argc, char **argv)
     cudaMemcpy(&(gpu_graph->adj_mtx),&gpu_adj_mtx,sizeof(pii*),cudaMemcpyHostToDevice);
 
     // invoking the push_relabel host function
-    push_relabel(cpu_graph,gpu_graph,source,sink);
+    // problem in this function
+    push_relabel(cpu_graph,gpu_graph,source,sink,gpu_height,gpu_excess_flow,gpu_adj_mtx);
+
+    printf("Fn over\n");
 
     // copying the graph from the CUDA device global memory back to host memory
     cudaMemcpy(cpu_graph,gpu_graph,sizeof(Graph),cudaMemcpyDeviceToHost);
