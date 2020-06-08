@@ -39,7 +39,7 @@ struct Edge
     }
 };
 
-class Graph
+class Graph_s
 {
     int V; // number of vertices
     vector<Vertex> vertex; // vector of vertices
@@ -58,7 +58,7 @@ class Graph
     void updatereverseflow(int i, int flow);
 
 public:
-    Graph(int v); // constructor to create graph with v vertices
+    Graph_s(int v); // constructor to create graph with v vertices
 
     void addedge(int u, int v, int w); // function to add an edge
 
@@ -66,7 +66,7 @@ public:
 
 };
 
-Graph::Graph(int v)
+Graph_s::Graph_s(int v)
 {
     this->V = v;
 
@@ -77,13 +77,13 @@ Graph::Graph(int v)
     }
 }
 
-void Graph::addedge(int u, int v, int capacity)
+void Graph_s::addedge(int u, int v, int capacity)
 {
     // flow is initially 0 for all edges
     edge.pb(Edge(0,capacity,u,v));
 }
 
-void Graph::preflow(int s)
+void Graph_s::preflow(int s)
 {
     // making height of source vertex equal to number of vertices
     // height of other vertices are 0 by default
@@ -120,7 +120,7 @@ int overflowvertex(vector<Vertex>& ver, int s, int t)
 }
 
 // Update reverse flow for flow added on i-th edge
-void Graph::updatereverseflow(int i, int flow)
+void Graph_s::updatereverseflow(int i, int flow)
 {
     int u = edge[i].v , v = edge[i].u;
 
@@ -138,7 +138,7 @@ void Graph::updatereverseflow(int i, int flow)
 }
 
 // To push flow from overflowing vertex u
-bool Graph::push(int u)
+bool Graph_s::push(int u)
 {
     // Traverse through all edges to find an adjacent vertex of u, to which flow can be pushed
     for(int i = 0; i < edge.size(); i++)
@@ -175,7 +175,7 @@ bool Graph::push(int u)
 }
 
 // function to relabel vertex u
-void Graph::relabel(int u)
+void Graph_s::relabel(int u)
 {
     // initialize mimimum height of an adjacent
     int mh = INT_MAX;
@@ -202,7 +202,7 @@ void Graph::relabel(int u)
 }
 
 // function to print the maximum flow from source s to sink t
-int Graph::maxflow(int s, int t)
+int Graph_s::maxflow(int s, int t)
 {
     preflow(s);
 
@@ -223,10 +223,11 @@ int Graph::maxflow(int s, int t)
 int main() 
 { 
     int V = 6; 
-    Graph g(V); 
+    int E = 10;
+    Graph_s g(V); 
   
-    // Creating above shown flow network 
-    g.addedge(0, 1, 16); 
+    // Creating flow network 
+    /*g.addedge(0, 1, 16); 
     g.addedge(0, 2, 13); 
     g.addedge(1, 2, 10); 
     g.addedge(2, 1, 4); 
@@ -235,7 +236,25 @@ int main()
     g.addedge(3, 2, 9); 
     g.addedge(3, 5, 20); 
     g.addedge(4, 3, 7); 
-    g.addedge(4, 5, 4); 
+    g.addedge(4, 5, 4);*/
+
+    FILE *fp = fopen("edgelist.txt","r");
+
+    char buf1[10],buf2[10],buf3[10];
+    int e1,e2,cp;
+
+    for(int i = 0; i < E; i++)
+    {
+        fscanf(fp,"%s",buf1);
+        fscanf(fp,"%s",buf2);
+        fscanf(fp,"%s",buf3);
+
+        e1 = atoi(buf1);
+        e2 = atoi(buf2);
+        cp = atoi(buf3);
+
+        g.addedge(e1,e2,cp);
+    }
   
     // Initialize source and sink 
     int s = 0, t = 5; 
