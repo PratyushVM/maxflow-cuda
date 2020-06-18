@@ -7,15 +7,17 @@
 #define threads_per_block 256
 #define number_of_blocks_nodes ((number_of_nodes/threads_per_block) + 1)
 #define number_of_blocks_edges ((number_of_edges/threads_per_block) + 1)
-#define KERNEL_CYCLES gpu_graph->V
 #define INF 1000000
+
+#define IDX(i,x,y) (i)*(x) + (y)
 
 struct Edge
 {
+    int from;   // source node of the edge
     int to; // destination node of the edge
-    int flow;   // residual flow value of the edge
+    int rflow;   // residual flow value of the edge
     int capacity;   // capacity of the edge
-}
+};
 
 struct Graph
 {
@@ -23,9 +25,48 @@ struct Graph
     int excess_total;   // total excess flow across all active nodes
     int *height;    // array containing height values of the vertices
     int *excess_flow;   // array containing excess flow values of the vertices
-    Edge* edgelist; // array of edges of the graph
+    Edge *edgelist; // array of edges of the graph
     int *index;  // array containing pairs of indices of edges in edgelist array corresponding to the nodes
+};
+
+void preflow(int V, int E, Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow, Edge *cpu_edgelist, int *cpu_index, int source)
+{
+    for(int i = 0; i < V; i++)
+    {
+        cpu_height[i] = 0;
+        cpu_excess_flow[i] = 0;        
+    }
+
+    cpu_height[source] = V;
+    cpu_excess_flow[source] = 0;
+
+    for(int i = 0; i < E; i++)
+    {
+        // for all x,y
+        cpu_edgelist[i].rflow = cpu_edgelist[i].capacity;
+    }
+
+    for(int i = cpu_index[source]; i < cpu_index[source + 1]; i++)
+    {
+        // for s,x
+        cpu_edgelist[i].rflow = 0;
+        
+        // for x,s
+        for(int j = cpu_index[cpu_edgelist[i].to]; j < cpu_index[cpu_edgelist[i].to + 1]; j++)
+        {
+            if(cpu_edgelist[j].to == source)
+            {
+                cpu_edgelist[j].rflow = cpu_edgelist[j].capacity + cpu_edgelist[i].capacity;
+            }
+        }
+        
+        cpu_excess_flow[cpu_edgelist[i].to] = cpu_edgelist[i].capacity; 
+        cpu_graph->excess_total += cpu_edgelist[i].capacity;
+    
+    }
+    
 }
+
 
 int main(int argc, char **argv)
 {
@@ -71,12 +112,25 @@ int main(int argc, char **argv)
     cpu_graph->edgelist = cpu_edgelist;
     cpu_graph->index = cpu_index;
 
-    // add readgraph function to get edgelist,index from txt file - dont forget to add rev edges for each edge added
+    // add readgraph function to get edgelist,index from txt file - !!dont forget to add rev edges for each edge added!!
     // ...
 
     // time start
 
     // preflow fn()
+    preflow(V,E,cpu_graph,cpu_height,cpu_excess_flow,cpu_edgelist,cpu_index,source);
+
+    // copy graph to device
+    cudaMemcpy(gpu_graph,cpu_graph,sizeof(Graph),cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_height,cpu_height,V*sizeof(int),cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_excess_flow,cpu_excess_flow,V*sizeof(int),cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_edgelist,cpu_edgelist,E*sizeof(Edge),cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_index,cpu_index,V*sizeof(int) + 1,cudaMemcpyHostToDevice);
+
+    cudaMemcpy(&(gpu_graph->height),&gpu_height,sizeof(int*),cudaMemcpyHostToDevice);
+    cudaMemcpy(&(gpu_graph->excess_flow),&gpu_excess_flow,sizeof(int*),cudaMemcpyHostToDevice);
+    cudaMemcpy(&(gpu_graph->edgelist),&gpu_edgelist,sizeof(Edge*),cudaMemcpyHostToDevice);
+    cudaMemcpy(&(gpu_graph->index),&gpu_index,sizeof(int*),cudaMemcpyHostToDevice);
 
     // push relabel host function - invokes pr kernel - global relbl
 
