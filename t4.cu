@@ -68,8 +68,36 @@ void preflow(int V, int E, Graph *cpu_graph, int *cpu_height, int *cpu_excess_fl
 }
 
 void global_relabel_cpu(Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow, Edge *cpu_edgelist, int *cpu_index)
-{
-    
+{    
+    for(int i = 0; i < cpu_graph->E; i++)
+    {
+        int x = cpu_edgelist[i].from;
+        int y = cpu_edgelist[i].to;
+        int rev_index;
+
+        if(cpu_height[x] > (cpu_height[y] + 1) )
+        {
+            cpu_excess_flow[x] -= cpu_edgelist[i].rflow;
+            cpu_excess_flow[y] += cpu_edgelist[i].rflow;
+
+            // capture index of y-x
+            for(int j = cpu_index[y]; j < cpu_index[y + 1]; j++)
+            {
+                if(cpu_edgelist[j].to == x)
+                {
+                    rev_index = j;
+                    break;
+                }
+            }
+
+            cpu_edgelist[rev_index].rflow += cpu_edgelist[i].rflow;
+            cpu_edgelist[i].rflow = 0;
+
+        }
+                
+    }
+
+    // backward bfs
 
 
 }
@@ -162,12 +190,17 @@ void push_relabel(int V, int E, Graph *cpu_graph, Graph *gpu_graph, int *cpu_hei
     while(cpu_graph->excess_flow[source] + cpu_graph->excess_flow[sink] < cpu_graph->excess_total)
     {
         cudaMemcpy(gpu_height,cpu_height,V*sizeof(int),cudaMemcpyHostToDevice);
-        //push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(parameters)
+        
+        push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(gpu_graph,gpu_height,gpu_edgelist,gpu_excess_flow,gpu_index);
+        
         cudaMemcpy(cpu_edgelist,gpu_edgelist,E*sizeof(Edge),cudaMemcpyDeviceToHost);
         cudaMemcpy(cpu_height,gpu_height,V*sizeof(int),cudaMemcpyDeviceToHost);
         cudaMemcpy(cpu_excess_flow,gpu_excess_flow,V*sizeof(int),cudaMemcpyDeviceToHost);
-        //global relabel cpu(parameters)
+        
+        global_relabel_cpu(cpu_graph,cpu_height,cpu_excess_flow,cpu_edgelist,cpu_index);
+    
     }
+    
 }
 
 
