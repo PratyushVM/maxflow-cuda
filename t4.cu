@@ -21,7 +21,7 @@ struct Edge
 
 struct Graph
 {
-    int V;  // number of vertices
+    int V,E;  // number of vertices and number of edges
     int excess_total;   // total excess flow across all active nodes
     int *height;    // array containing height values of the vertices
     int *excess_flow;   // array containing excess flow values of the vertices
@@ -67,13 +67,116 @@ void preflow(int V, int E, Graph *cpu_graph, int *cpu_height, int *cpu_excess_fl
     
 }
 
+void global_relabel_cpu(Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow, Edge *cpu_edgelist, int *cpu_index)
+{
+    
+
+
+}
+
+
+__global__ void push_relabel_kernel(Graph *gpu_graph, int *gpu_height, Edge *gpu_edgelist, int *gpu_excess_flow, int *gpu_index)
+{
+    // xth node is operated by xth thread
+    unsigned int x = (blockIdx.x*blockDim.x) + threadIdx.x;
+    if(x < gpu_graph->V)
+    {
+        int CYCLE = gpu_graph->V;
+
+        int e_dash,y,y_dash,h_dash,h_double_dash,delta,index_1,index_2;
+
+        while(CYCLE > 0)
+        {
+            if( (gpu_excess_flow[x] > 0) && (gpu_height[x] < gpu_graph->V) )
+            {
+                e_dash = gpu_excess_flow[x];
+                y_dash = NULL;
+                h_double_dash = INF;
+
+                for(int i = gpu_index[x]; i < gpu_index[x + 1]; i++)
+                {
+                    y = gpu_edgelist[i].to;
+
+                    h_dash = gpu_height[y];
+
+                    if(h_double_dash > h_dash)
+                    {
+                        h_double_dash = h_dash;
+                        y_dash = y;
+                    }
+                }
+
+
+
+                if(h_double_dash < gpu_height[x])
+                {
+                    // capture cf x ydash
+                    for(int i = gpu_index[x]; i < gpu_index[x + 1]; i++)
+                    {
+                        if(gpu_edgelist[i].to == y_dash)
+                        {
+                            index_1 = i;
+                            break;
+                        }
+                    }
+
+                    // capture cf ydash x
+                    for(int i = gpu_index[y_dash]; i < gpu_index[y_dash + 1]; i++)
+                    {
+                        if(gpu_edgelist[i].to == x)
+                        {
+                            index_2 = i;
+                            break;
+                        }
+                    }
+
+                    // push towards y
+                    delta = e_dash;
+                    atomicMin(&delta,gpu_edgelist[index_1].rflow);
+                    
+                    atomicSub(&(gpu_edgelist[index_1].rflow),delta);
+                    atomicAdd(&(gpu_edgelist[index_2].rflow),delta);
+                    atomicSub(&(gpu_excess_flow[x]),delta);
+                    atomicAdd(&(gpu_excess_flow[y_dash]),delta);
+
+                }
+                
+                else
+                {
+                    // perform relabel
+                    gpu_height[x] = h_double_dash + 1;
+                }
+
+            }
+
+            CYCLE = CYCLE - 1;
+
+        }
+    
+    }
+}
+
+
+void push_relabel(int V, int E, Graph *cpu_graph, Graph *gpu_graph, int *cpu_height, int *gpu_height, int *cpu_edgelist, int *gpu_edgelist, int *cpu_excess_flow, int *gpu_excess_flow, int *cpu_index, int *gpu_index, int source, int sink)
+{
+    while(cpu_graph->excess_flow[source] + cpu_graph->excess_flow[sink] < cpu_graph->excess_total)
+    {
+        cudaMemcpy(gpu_height,cpu_height,V*sizeof(int),cudaMemcpyHostToDevice);
+        //push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(parameters)
+        cudaMemcpy(cpu_edgelist,gpu_edgelist,E*sizeof(Edge),cudaMemcpyDeviceToHost);
+        cudaMemcpy(cpu_height,gpu_height,V*sizeof(int),cudaMemcpyDeviceToHost);
+        cudaMemcpy(cpu_excess_flow,gpu_excess_flow,V*sizeof(int),cudaMemcpyDeviceToHost);
+        //global relabel cpu(parameters)
+    }
+}
+
 
 int main(int argc, char **argv)
 {
     // checking if sufficient number of arguments are passed in CLI
-    if(argc < 5)
+    if(argc != 5)
     {
-        printf("Insufficient number of arguments passed during execution\n");
+        printf("Invalid number of arguments passed during execution\n");
         exit(0);
     }
 
@@ -106,6 +209,7 @@ int main(int argc, char **argv)
 
     // Assigning values to the Graph object in the host memory
     cpu_graph->V = V;
+    cpu_graph->E = E;
     cpu_graph->excess_total = 0;
     cpu_graph->height = cpu_height;
     cpu_graph->excess_flow = cpu_excess_flow;
@@ -133,8 +237,7 @@ int main(int argc, char **argv)
     cudaMemcpy(&(gpu_graph->index),&gpu_index,sizeof(int*),cudaMemcpyHostToDevice);
 
     // push relabel host function - invokes pr kernel - global relbl
-
-    // copy to host
+    push_relabel(V,E,cpu_graph,gpu_graph,cpu_height,gpu_height,cpu_edgelist,gpu_edgelist,cpu_excess_flow,gpu_excess_flow,cpu_index,gpu_index,source,sink);
 
     // time end
 
