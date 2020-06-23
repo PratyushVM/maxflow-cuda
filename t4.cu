@@ -67,7 +67,7 @@ void preflow(int V, int E, Graph *cpu_graph, int *cpu_height, int *cpu_excess_fl
     
 }
 
-void global_relabel_cpu(Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow, Edge *cpu_edgelist, int *cpu_index)
+void global_relabel_cpu(Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow, Edge *cpu_edgelist, int *cpu_index, int *marking)
 {    
     for(int i = 0; i < cpu_graph->E; i++)
     {
@@ -98,7 +98,52 @@ void global_relabel_cpu(Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow,
     }
 
     // backward bfs
+    int level = cpu_graph->V;
+    std::list<int> queue;
+    
+    bool visit[cpu_graph->V];
+    memset(visit,false,sizeof(visit));
 
+    queue.push_back(source);
+    cpu_height[source] = level;
+    marking[source] = 1;
+    visit[source] = true;
+
+    int p;
+
+    while(!queue.empty())
+    {
+        p = queue.front();
+        queue.pop_front();
+
+        for(int i = cpu_index[i]; i < cpu_index[i + 1]; i++)
+        {
+            int q = edgelist[i].to;
+            
+            if((visit[q] == false) && (marking[q] != 2) )
+            {
+                queue.push_back(q);
+                visit[q] = true;
+                marking[q] = 1;
+                cpu_height[q] = cpu_height[p] - 1;
+            }
+
+        }
+
+    }
+
+    for(int i = 0; i < cpu_graph->V; i++)
+    {
+        if(marking[i] == 1)
+        {
+            marking[i] = 0;
+        }
+        if(marking[i] == 0)
+        {
+            marking[i] = 2;
+            cpu_graph->excess_total -= cpu_excess_flow[i];
+        }
+    }
 
 }
 
@@ -197,10 +242,31 @@ void push_relabel(int V, int E, Graph *cpu_graph, Graph *gpu_graph, int *cpu_hei
         cudaMemcpy(cpu_height,gpu_height,V*sizeof(int),cudaMemcpyDeviceToHost);
         cudaMemcpy(cpu_excess_flow,gpu_excess_flow,V*sizeof(int),cudaMemcpyDeviceToHost);
         
-        global_relabel_cpu(cpu_graph,cpu_height,cpu_excess_flow,cpu_edgelist,cpu_index);
+        int *marking;
+        marking = (int*)malloc(V*sizeof(int));
+        memset(marking,0,sizeof(marking));
+
+        global_relabel_cpu(cpu_graph,cpu_height,cpu_excess_flow,cpu_edgelist,cpu_index,marking);
     
     }
+
+}
+
+void readgraph(int V, int E, int source, int sink, Graph *cpu_graph)
+{
+    FILE *fp = fopen("edgelist.txt","r");
     
+    char buf1[10],buf2[10],buf3[10];
+    int e1,e2,cp;
+
+    for(int i = 0; i < E; i++)
+    {
+        cpu_graph->edgelist[i].rflow = 0;
+        cpu_graph->edgelist[i].capacity = 0;
+    }
+
+    
+
 }
 
 
@@ -250,7 +316,7 @@ int main(int argc, char **argv)
     cpu_graph->index = cpu_index;
 
     // add readgraph function to get edgelist,index from txt file - !!dont forget to add rev edges for each edge added!!
-    // ...
+    readgraph(int V, int E, int source, int sink, Graph *cpu_graph);
 
     // time start
 
@@ -275,7 +341,8 @@ int main(int argc, char **argv)
     // time end
 
     // print result
-
+    printf("The maximum flow of the network is %d\n",cpu_excess_flow[sink]);
+    
     // free host var
 
     // free dev var
