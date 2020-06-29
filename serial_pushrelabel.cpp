@@ -23,14 +23,14 @@ struct Vertex
 };
 
 // Structure representing an Edge
-struct Edge
+struct Edge_s
 {
     int u,v; // edge from node u to node v
     int flow; // current flow
     int capacity; // capacity of edge
 
     // constructor function 
-    Edge(int f, int c, int a, int b)
+    Edge_s(int f, int c, int a, int b)
     {
         this->u = a;
         this->v = b;
@@ -43,7 +43,7 @@ class Graph_s
 {
     int V; // number of vertices
     vector<Vertex> vertex; // vector of vertices
-    vector<Edge> edge; // vector of edges
+    vector<Edge_s> edge; // vector of edges
 
     // function to push excess flow from u
     bool push(int u);
@@ -80,7 +80,7 @@ Graph_s::Graph_s(int v)
 void Graph_s::addedge(int u, int v, int capacity)
 {
     // flow is initially 0 for all edges
-    edge.pb(Edge(0,capacity,u,v));
+    edge.pb(Edge_s(0,capacity,u,v));
 }
 
 void Graph_s::preflow(int s)
@@ -101,7 +101,7 @@ void Graph_s::preflow(int s)
             vertex[edge[i].v].ex_flow += edge[i].flow;
 
             // add reverse edge in residual graph with capacity equal to 0
-            edge.pb(Edge(-edge[i].flow,0,edge[i].v,s));
+            edge.pb(Edge_s(-edge[i].flow,0,edge[i].v,s));
         }
     }
 }
@@ -134,7 +134,7 @@ void Graph_s::updatereverseflow(int i, int flow)
     }
 
     // if reverse edge not present in residual graph
-    edge.pb(Edge(0,flow,u,v));
+    edge.pb(Edge_s(0,flow,u,v));
 }
 
 // To push flow from overflowing vertex u

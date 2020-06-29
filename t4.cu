@@ -19,6 +19,11 @@ struct Edge
     int capacity;   // capacity of the edge
 };
 
+bool cmp(const Edge &x, const Edge &y)
+{
+    return (x.from > y.from);
+}
+
 struct Graph
 {
     int V,E;  // number of vertices and number of edges
@@ -28,6 +33,62 @@ struct Graph
     Edge *edgelist; // array of edges of the graph
     int *index;  // array containing pairs of indices of edges in edgelist array corresponding to the nodes
 };
+
+void readgraph(int V, int E, int source, int sink, Graph *cpu_graph)
+{
+    FILE *fp = fopen("edgelist.txt","r");
+    
+    char buf1[10],buf2[10],buf3[10];
+    int e1,e2,cp;
+
+    /*
+    for(int i = 0; i < 2*E; i++)
+    {
+        cpu_graph->edgelist[i].rflow = 0;
+        cpu_graph->edgelist[i].capacity = 0;
+    }
+    */
+
+    Edge input[2*E];
+    for(int i = 0; i < 2*E; i+=2)
+    {
+        fscanf(fp,"%s",buf1);
+        fscanf(fp,"%s",buf2);
+        fscanf(fp,"%s",buf3);
+
+        e1 = atoi(buf1);
+        e2 = atoi(buf2);
+        cp = atoi(buf3);
+
+        input[i].rflow = 0;
+        input[i].capacity = cp;
+        input[i].from = e1;
+        input[i].to = e2;
+
+        input[i+1].rflow = 0;
+        input[i+1].capacity = 0;
+        input[i+1].from = e2;
+        input[i+1].to = e1;
+        
+    }   
+    
+    std::sort(input,input+2*E,cmp);
+
+    memcpy(input,cpu_graph->edgelist,2*E*sizeof(Edge));
+
+    cpu_graph->index[0] = 0;
+    int ind_v = 1;
+    for(int i = 1; i < 2*cpu_graph->E; i++)
+    {
+        if(cpu_graph->edgelist[i].from != cpu_graph->edgelist[i-1].from)
+        {
+            cpu_graph->index[ind_v] = i;
+            ind_v++;
+        }
+    }
+
+}
+
 
 void preflow(int V, int E, Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow, Edge *cpu_edgelist, int *cpu_index, int source)
 {
@@ -40,7 +101,7 @@ void preflow(int V, int E, Graph *cpu_graph, int *cpu_height, int *cpu_excess_fl
     cpu_height[source] = V;
     cpu_excess_flow[source] = 0;
 
-    for(int i = 0; i < E; i++)
+    for(int i = 0; i < 2*E; i++)
     {
         // for all x,y
         cpu_edgelist[i].rflow = cpu_edgelist[i].capacity;
@@ -67,9 +128,9 @@ void preflow(int V, int E, Graph *cpu_graph, int *cpu_height, int *cpu_excess_fl
     
 }
 
-void global_relabel_cpu(Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow, Edge *cpu_edgelist, int *cpu_index, int *marking)
+void global_relabel_cpu(int source, int sink,Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow, Edge *cpu_edgelist, int *cpu_index, int *marking)
 {    
-    for(int i = 0; i < cpu_graph->E; i++)
+    for(int i = 0; i < 2*cpu_graph->E; i++)
     {
         int x = cpu_edgelist[i].from;
         int y = cpu_edgelist[i].to;
@@ -109,16 +170,16 @@ void global_relabel_cpu(Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow,
     marking[source] = 1;
     visit[source] = true;
 
-    int p;
+    int p,i;
 
     while(!queue.empty())
     {
         p = queue.front();
         queue.pop_front();
 
-        for(int i = cpu_index[i]; i < cpu_index[i + 1]; i++)
+        for( i = cpu_index[i]; i < cpu_index[i + 1]; i++)
         {
-            int q = edgelist[i].to;
+            int q = cpu_edgelist[i].to;
             
             if((visit[q] == false) && (marking[q] != 2) )
             {
@@ -132,7 +193,7 @@ void global_relabel_cpu(Graph *cpu_graph, int *cpu_height, int *cpu_excess_flow,
 
     }
 
-    for(int i = 0; i < cpu_graph->V; i++)
+    for( i = 0; i < cpu_graph->V; i++)
     {
         if(marking[i] == 1)
         {
@@ -230,7 +291,7 @@ __global__ void push_relabel_kernel(Graph *gpu_graph, int *gpu_height, Edge *gpu
 }
 
 
-void push_relabel(int V, int E, Graph *cpu_graph, Graph *gpu_graph, int *cpu_height, int *gpu_height, int *cpu_edgelist, int *gpu_edgelist, int *cpu_excess_flow, int *gpu_excess_flow, int *cpu_index, int *gpu_index, int source, int sink)
+void push_relabel(int V, int E, Graph *cpu_graph, Graph *gpu_graph, int *cpu_height, int *gpu_height, Edge *cpu_edgelist, Edge *gpu_edgelist, int *cpu_excess_flow, int *gpu_excess_flow, int *cpu_index, int *gpu_index, int source, int sink)
 {
     while(cpu_graph->excess_flow[source] + cpu_graph->excess_flow[sink] < cpu_graph->excess_total)
     {
@@ -238,7 +299,7 @@ void push_relabel(int V, int E, Graph *cpu_graph, Graph *gpu_graph, int *cpu_hei
         
         push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(gpu_graph,gpu_height,gpu_edgelist,gpu_excess_flow,gpu_index);
         
-        cudaMemcpy(cpu_edgelist,gpu_edgelist,E*sizeof(Edge),cudaMemcpyDeviceToHost);
+        cudaMemcpy(cpu_edgelist,gpu_edgelist,2*E*sizeof(Edge),cudaMemcpyDeviceToHost);
         cudaMemcpy(cpu_height,gpu_height,V*sizeof(int),cudaMemcpyDeviceToHost);
         cudaMemcpy(cpu_excess_flow,gpu_excess_flow,V*sizeof(int),cudaMemcpyDeviceToHost);
         
@@ -246,26 +307,9 @@ void push_relabel(int V, int E, Graph *cpu_graph, Graph *gpu_graph, int *cpu_hei
         marking = (int*)malloc(V*sizeof(int));
         memset(marking,0,sizeof(marking));
 
-        global_relabel_cpu(cpu_graph,cpu_height,cpu_excess_flow,cpu_edgelist,cpu_index,marking);
+        global_relabel_cpu(source,sink,cpu_graph,cpu_height,cpu_excess_flow,cpu_edgelist,cpu_index,marking);
     
     }
-
-}
-
-void readgraph(int V, int E, int source, int sink, Graph *cpu_graph)
-{
-    FILE *fp = fopen("edgelist.txt","r");
-    
-    char buf1[10],buf2[10],buf3[10];
-    int e1,e2,cp;
-
-    for(int i = 0; i < E; i++)
-    {
-        cpu_graph->edgelist[i].rflow = 0;
-        cpu_graph->edgelist[i].capacity = 0;
-    }
-
-    
 
 }
 
@@ -316,7 +360,7 @@ int main(int argc, char **argv)
     cpu_graph->index = cpu_index;
 
     // add readgraph function to get edgelist,index from txt file - !!dont forget to add rev edges for each edge added!!
-    readgraph(int V, int E, int source, int sink, Graph *cpu_graph);
+    //readgraph(int V, int E, int source, int sink, Graph *cpu_graph);
 
     // time start
 
@@ -327,7 +371,7 @@ int main(int argc, char **argv)
     cudaMemcpy(gpu_graph,cpu_graph,sizeof(Graph),cudaMemcpyHostToDevice);
     cudaMemcpy(gpu_height,cpu_height,V*sizeof(int),cudaMemcpyHostToDevice);
     cudaMemcpy(gpu_excess_flow,cpu_excess_flow,V*sizeof(int),cudaMemcpyHostToDevice);
-    cudaMemcpy(gpu_edgelist,cpu_edgelist,E*sizeof(Edge),cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_edgelist,cpu_edgelist,2*E*sizeof(Edge),cudaMemcpyHostToDevice);
     cudaMemcpy(gpu_index,cpu_index,V*sizeof(int) + 1,cudaMemcpyHostToDevice);
 
     cudaMemcpy(&(gpu_graph->height),&gpu_height,sizeof(int*),cudaMemcpyHostToDevice);
