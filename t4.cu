@@ -2,8 +2,8 @@
 #include<bits/stdc++.h>
 // include thrust to use in readgraph
 
-#define number_of_nodes 6
-#define number_of_edges 10
+#define number_of_nodes 4
+#define number_of_edges 3
 #define threads_per_block 256
 #define number_of_blocks_nodes ((number_of_nodes/threads_per_block) + 1)
 #define number_of_blocks_edges ((number_of_edges/threads_per_block) + 1)
@@ -21,7 +21,7 @@ struct Edge
 
 bool cmp(const Edge &x, const Edge &y)
 {
-    return (x.from > y.from);
+    return (x.from < y.from);
 }
 
 struct Graph
@@ -60,7 +60,7 @@ void readgraph(int V, int E, int source, int sink, Graph *cpu_graph)
         e2 = atoi(buf2);
         cp = atoi(buf3);
 
-        input[i].rflow = 0;
+        input[i].rflow = cp;
         input[i].capacity = cp;
         input[i].from = e1;
         input[i].to = e2;
@@ -74,7 +74,7 @@ void readgraph(int V, int E, int source, int sink, Graph *cpu_graph)
     
     std::sort(input,input+2*E,cmp);
 
-    memcpy(input,cpu_graph->edgelist,2*E*sizeof(Edge));
+    memcpy(cpu_graph->edgelist,input,2*E*sizeof(Edge));
 
     cpu_graph->index[0] = 0;
     int ind_v = 1;
@@ -86,6 +86,7 @@ void readgraph(int V, int E, int source, int sink, Graph *cpu_graph)
             ind_v++;
         }
     }
+    cpu_graph->index[V] = 2*E - 1;
 
 }
 
@@ -215,7 +216,7 @@ __global__ void push_relabel_kernel(Graph *gpu_graph, int *gpu_height, Edge *gpu
     unsigned int x = (blockIdx.x*blockDim.x) + threadIdx.x;
     if(x < gpu_graph->V)
     {
-        int CYCLE = gpu_graph->V;
+        int CYCLE = 1;//gpu_graph->V;
 
         int e_dash,y,y_dash,h_dash,h_double_dash,delta,index_1,index_2;
 
@@ -295,20 +296,21 @@ void push_relabel(int V, int E, Graph *cpu_graph, Graph *gpu_graph, int *cpu_hei
 {
     while(cpu_graph->excess_flow[source] + cpu_graph->excess_flow[sink] < cpu_graph->excess_total)
     {
+        printf("QWERTY\n");
         cudaMemcpy(gpu_height,cpu_height,V*sizeof(int),cudaMemcpyHostToDevice);
-        
+        printf("S!\n");
         push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(gpu_graph,gpu_height,gpu_edgelist,gpu_excess_flow,gpu_index);
         
         cudaMemcpy(cpu_edgelist,gpu_edgelist,2*E*sizeof(Edge),cudaMemcpyDeviceToHost);
         cudaMemcpy(cpu_height,gpu_height,V*sizeof(int),cudaMemcpyDeviceToHost);
         cudaMemcpy(cpu_excess_flow,gpu_excess_flow,V*sizeof(int),cudaMemcpyDeviceToHost);
-        
+        printf("T\n");
         int *marking;
         marking = (int*)malloc(V*sizeof(int));
         memset(marking,0,sizeof(marking));
 
         global_relabel_cpu(source,sink,cpu_graph,cpu_height,cpu_excess_flow,cpu_edgelist,cpu_index,marking);
-    
+        printf("L\n");
     }
 
 }
@@ -360,12 +362,57 @@ int main(int argc, char **argv)
     cpu_graph->index = cpu_index;
 
     // add readgraph function to get edgelist,index from txt file - !!dont forget to add rev edges for each edge added!!
-    //readgraph(int V, int E, int source, int sink, Graph *cpu_graph);
+    readgraph(V, E, source, sink, cpu_graph);
 
     // time start
 
+
+    // printing values to check
+    printf("\nIndex : \n");
+    for(int i = 0; i < V+1; i++)
+    {
+        printf("%d ",cpu_index[i]);
+    }
+    printf("\nHeight : \n");
+    for(int i = 0; i < V; i++)
+    {
+        printf("%d ",cpu_height[i]);
+    }
+    printf("\nExcess flow : \n");
+    for(int i = 0; i < V; i++)
+    {
+        printf("%d ",cpu_excess_flow[i]);
+    }
+    printf("\nEdgelist : \n");
+    for(int i = 0; i < 2*E; i++)
+    {
+        printf("Edge %d : %d %d %d %d\n",i,cpu_edgelist[i].from,cpu_edgelist[i].to,cpu_edgelist[i].rflow,cpu_edgelist[i].capacity);
+    }
+
+
     // preflow fn()
     preflow(V,E,cpu_graph,cpu_height,cpu_excess_flow,cpu_edgelist,cpu_index,source);
+
+    printf("\nIndex : \n");
+    for(int i = 0; i < V+1; i++)
+    {
+        printf("%d ",cpu_index[i]);
+    }
+    printf("\nHeight : \n");
+    for(int i = 0; i < V; i++)
+    {
+        printf("%d ",cpu_height[i]);
+    }
+    printf("\nExcess flow : \n");
+    for(int i = 0; i < V; i++)
+    {
+        printf("%d ",cpu_excess_flow[i]);
+    }
+    printf("\nEdgelist : \n");
+    for(int i = 0; i < 2*E; i++)
+    {
+        printf("Edge %d : %d %d %d %d\n",i,cpu_edgelist[i].from,cpu_edgelist[i].to,cpu_edgelist[i].rflow,cpu_edgelist[i].capacity);
+    }
 
     // copy graph to device
     cudaMemcpy(gpu_graph,cpu_graph,sizeof(Graph),cudaMemcpyHostToDevice);
