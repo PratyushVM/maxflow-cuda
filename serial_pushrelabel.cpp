@@ -222,8 +222,8 @@ int Graph_s::maxflow(int s, int t)
 // Driver program to test above functions 
 int main() 
 { 
-    int V = 6; 
-    int E = 10;
+    int V = 4; 
+    int E = 3;
     Graph_s g(V); 
   
     // Creating flow network 
@@ -257,7 +257,7 @@ int main()
     }
   
     // Initialize source and sink 
-    int s = 0, t = 5; 
+    int s = 0, t = 3; 
   
     cout << "Maximum flow is " << g.maxflow(s, t); 
     return 0; 
