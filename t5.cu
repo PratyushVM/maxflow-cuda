@@ -55,7 +55,7 @@ void readgraph(int V, int E, int source, int sink, int *cpu_height, int *cpu_exc
 
 void preflow(int V, int source, int sink, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmtx, int *cpu_rflowmtx, int *Excess_total)
 {
-    // initialising height values and excess flow values
+    // initialising height values and excess flow, Excess_total values
     for(int i = 0; i < V; i++)
     {
         cpu_height[i] = 0; 
@@ -91,14 +91,35 @@ void preflow(int V, int source, int sink, int *cpu_height, int *cpu_excess_flow,
 
 }
 
-__global__ void push_relabel_kernel()
-{
-
-}
-
-void push_relabel(int source, int sink, int *Excess_total, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmtx, int *cpu_rflowmtx, int *Excess_total, int *gpu_height, int *gpu_excess_flow, int *gpu_adjmtx, int *gpu_rflowmtx)
+__global__ void push_relabel_kernel(int V, int *gpu_height, int *gpu_excess_flow, int *gpu_adjmtx,int *gpu_rflowmtx)
 {
     
+}
+
+void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmtx, int *cpu_rflowmtx, int *Excess_total, int *gpu_height, int *gpu_excess_flow, int *gpu_adjmtx, int *gpu_rflowmtx)
+{
+    /* Instead of checking for overflowing vertices(as in the sequential push relabel),
+     * sum of excess flow values of sink and source are compared against Excess_total 
+     * If the sum is lesser than Excess_total, 
+     * it means that there is atleast one more vertex with excess flow > 0, apart from source and sink
+     */
+
+    while((cpu_excess_flow[source] + cpu_excess_flow[sink]) < *Excess_total)
+    {
+        // copying height values to CUDA device global memory
+        cudaMemcpy(gpu_height,cpu_height,V*sizeof(int),cudaMemcpyHostToDevice);
+
+        // invoking the push_relabel_kernel
+        push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(V,gpu_height,gpu_excess_flow,gpu_adjmtx,gpu_rflowmtx);
+
+        // copying height, excess flow and residual flow values from device to host memory
+        cudaMemcpy(cpu_height,gpu_height,V*sizeof(int),cudaMemcpyDeviceToHost);
+        cudaMemcpy(cpu_excess_flow,gpu_excess_flow,V*sizeof(int),cudaMemcpyDeviceToHost);
+        cudaMemcpy(cpu_rflowmtx,gpu_rflowmtx,V*V*sizeof(int),cudaMemcpyDeviceToHost);
+
+        global_relabel();
+
+    }
 
 }
 
@@ -157,7 +178,7 @@ int main(int argc, char **argv)
     cudaMemcpy(gpu_rflowmtx,cpu_rflowmtx,V*V*sizeof(int),cudaMemcpyHostToDevice);
 
     // push_relabel()
-    push_relabel(source,sink,Excess_total,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total,gpu_height,gpu_excess_flow,gpu_adjmtx,gpu_rflowmtx)
+    push_relabel(V,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total,gpu_height,gpu_excess_flow,gpu_adjmtx,gpu_rflowmtx)
     
     // print value
     printf("The maximum flow value of this flow network is %d\n",cpu_excess_flow[sink]);
