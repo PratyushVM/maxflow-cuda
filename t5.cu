@@ -200,14 +200,46 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
         cudaMemcpy(cpu_rflowmtx,gpu_rflowmtx,V*V*sizeof(int),cudaMemcpyDeviceToHost);
 
         // perform the global_relabel routine on host
-        global_relabel();
+        global_relabel(V,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total);
 
     }
 
 }
 
-void global_relabel()
+void global_relabel(int V, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmtx, int *cpu_rflowmtx, int *Excess_total)
 {
+    for(int u = 0; u < V; u++)
+    {
+        for(int v = 0; v < V; v++)
+        {
+            // for all (u,v) belonging to E
+            if(cpu_adjmtx[IDX(u,v)] > 0)
+            {
+                if(cpu_height[u] > cpu_height[v] + 1)
+                {
+                    cpu_excess_flow[u] = cpu_excess_flow[u] - cpu_rflowmtx[IDX(u,v)];
+                    cpu_excess_flow[v] = cpu_excess_flow[v] + cpu_rflowmtx[IDX(u,v)];
+                    cpu_rflowmtx[IDX(v,u)] = cpu_rflowmtx[IDX(v,u)] + cpu_rflowmtx[IDX(u,v)];
+                    cpu_rflowmtx[IDX(u,v)] = 0;
+                }
+            }
+        }
+
+        // performing backwards bfs from sink and assigning height value with each vertex's BFS tree level
+        
+        // declaring the Queue 
+        std::queue<int> Queue;
+        int scan[V];
+
+        for(int i = 0; i < V; i++)
+        {
+            scan[i] = 0;
+        }
+
+
+
+    }
+
 
 }
 
