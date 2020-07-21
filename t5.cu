@@ -136,7 +136,7 @@ __global__ void push_relabel_kernel(int V, int *gpu_height, int *gpu_excess_flow
             if(gpu_height[u] > h_dash)
             {
                 /* height of u > height of lowest neighbor
-                 * Push operation can be performed to lowest neighbor
+                 * Push operation can be performed from node u to lowest neighbor
                  * All addition, subtraction and minimum operations are done using Atomics
                  * This is to avoid anomalies in conflicts between multiple threads
                  */
