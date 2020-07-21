@@ -97,7 +97,7 @@ __global__ void push_relabel_kernel(int V, int *gpu_height, int *gpu_excess_flow
     // u'th node is operated on by the u'th thread
     unsigned int u = (blockIdx.x*blockDim.x) + threadIdx.x;
 
-    // cycle value is set to number_of_nodes 
+    // cycle value is set to KERNEL_CYCLES as required 
     int cycle = KERNEL_CYCLES;
 
     /* Variables declared to be used inside the kernel :
@@ -197,6 +197,7 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
         cudaMemcpy(cpu_excess_flow,gpu_excess_flow,V*sizeof(int),cudaMemcpyDeviceToHost);
         cudaMemcpy(cpu_rflowmtx,gpu_rflowmtx,V*V*sizeof(int),cudaMemcpyDeviceToHost);
 
+        // perform the global_relabel routine on host
         global_relabel();
 
     }
