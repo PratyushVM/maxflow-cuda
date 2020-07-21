@@ -37,7 +37,12 @@ void readgraph(int V, int E, int source, int sink, int *cpu_height, int *cpu_exc
         e2 = atoi(buf2);
         cp = atoi(buf3);
 
-        // adding edge to graph if it does not have source as to node, or sink as from node
+        /* Adding edge to graph if it does not have source as to node, or sink as from node
+         * rflow - residual flow is also updated simultaneously
+         * So the graph when prepared already has updated residual flow values
+         * This is why residual flow is not initialised during preflow
+         */
+
         if( (e2 != source) && (e1 != sink) )
         {
             cpu_adjmtx[IDX(e1,e2)] = cp;
@@ -58,11 +63,30 @@ void preflow(int V, int source, int sink, int *cpu_height, int *cpu_excess_flow,
     }
     
     cpu_height[source] = V;
+    *Excess_total = 0;
 
     // pushing flow in all edges going out from the source node
     for(int i = 0; i < V; i++)
     {
-        cpu_rflowmtx[IDX(source,i)] = 
+        // for all (source,i) belonging to E :
+        if(cpu_adjmtx[IDX(source,i)] > 0)
+        {
+            // pushing out of source node
+            cpu_rflowmtx[IDX(source,i)] = 0;
+            
+            /* updating the residual flow value on the back edge
+             * u_f(x,s) = u_xs + u_sx
+             * The capacity of the back edge is also added to avoid any push operation back to the source 
+             * This avoids creating a race condition, where flow keeps travelling to and from the source
+             */
+            cpu_rflowmtx[IDX(i,source)] = cpu_adjmtx[IDX(source,i)] + cpu_adjmtx[IDX(i,source)];
+            
+            // updating the excess flow value of the node flow is pushed to, from the source
+            cpu_excess_flow[i] = cpu_adjmtx[IDX(source,i)];
+
+            // update Excess_total value with the new excess flow value of the node flow is pushed to
+            *Excess_total += cpu_excess_flow[i];
+        } 
     }
 
 }
@@ -72,8 +96,9 @@ __global__ void push_relabel_kernel()
 
 }
 
-void push_relabel(int source, int sink, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmtx, int *cpu_rflowmtx, int *Excess_total, int *gpu_height, int *gpu_excess_flow, int *gpu_adjmtx, int *gpu_rflowmtx)
+void push_relabel(int source, int sink, int *Excess_total, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmtx, int *cpu_rflowmtx, int *Excess_total, int *gpu_height, int *gpu_excess_flow, int *gpu_adjmtx, int *gpu_rflowmtx)
 {
+    
 
 }
 
@@ -132,7 +157,7 @@ int main(int argc, char **argv)
     cudaMemcpy(gpu_rflowmtx,cpu_rflowmtx,V*V*sizeof(int),cudaMemcpyHostToDevice);
 
     // push_relabel()
-    push_relabel(source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total,gpu_height,gpu_excess_flow,gpu_adjmtx,gpu_rflowmtx)
+    push_relabel(source,sink,Excess_total,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total,gpu_height,gpu_excess_flow,gpu_adjmtx,gpu_rflowmtx)
     
     // print value
     printf("The maximum flow value of this flow network is %d\n",cpu_excess_flow[sink]);
