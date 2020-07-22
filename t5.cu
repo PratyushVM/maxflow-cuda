@@ -186,6 +186,20 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
      * it means that there is atleast one more vertex with excess flow > 0, apart from source and sink
      */
 
+    /* declaring the mark and scan boolean arrays used in the global_relabel routine outside the while loop 
+     * This is not to lose the mark values if it goes out of scope and gets redeclared in the next iteration 
+     */
+
+    bool *mark,*scanned;
+    mark = (bool*)malloc(V*sizeof(bool));
+    scanned = (bool*)malloc(V*sizeof(bool));
+
+    // initialising mark values to false for all nodes
+    for(int i = 0; i < V; i++)
+    {
+        mark[i] = false;
+    }
+
     while((cpu_excess_flow[source] + cpu_excess_flow[sink]) < *Excess_total)
     {
         // copying height values to CUDA device global memory
@@ -200,13 +214,13 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
         cudaMemcpy(cpu_rflowmtx,gpu_rflowmtx,V*V*sizeof(int),cudaMemcpyDeviceToHost);
 
         // perform the global_relabel routine on host
-        global_relabel(V,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total);
+        global_relabel(V,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total,mark,scan);
 
     }
 
 }
 
-void global_relabel(int V, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmtx, int *cpu_rflowmtx, int *Excess_total)
+void global_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmtx, int *cpu_rflowmtx, int *Excess_total, bool *mark, bool *scanned)
 {
     for(int u = 0; u < V; u++)
     {
@@ -228,15 +242,18 @@ void global_relabel(int V, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmt
         // performing backwards bfs from sink and assigning height value with each vertex's BFS tree level
         
         // declaring the Queue 
-        std::queue<int> Queue;
-        int scan[V];
+        std::list<int> Queue;
+
+        // declaring variables to iterate over nodes for the backwards bfs
+        int x,y;
 
         for(int i = 0; i < V; i++)
         {
-            scan[i] = 0;
+            scanned[i] = false;
         }
 
-
+        Queue.push_back(sink);
+        scanned[sink] = true;
 
     }
 
