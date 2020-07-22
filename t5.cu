@@ -8,7 +8,43 @@
 #define number_of_blocks_edges ((number_of_edges/threads_per_block) + 1)
 #define INF 1000000000
 #define IDX(x,y) ( ( (x)*(number_of_nodes) ) + (y) )
-#define KERNEL_CYCLES number_of_blocks_nodes
+#define KERNEL_CYCLES V
+
+void print(int V,int *cpu_height, int *cpu_excess_flow, int *cpu_rflowmtx, int *cpu_adjmtx)
+{
+    printf("\nHeight :");
+    for(int i = 0; i < V; i++)
+    {
+        printf("%d ",cpu_height[i]);
+    }
+
+    printf("\nExcess flow :");
+    for(int i = 0; i < V; i++)
+    {
+        printf("%d ",cpu_excess_flow[i]);
+    }
+
+    printf("\nRflow mtx :\n");
+    for(int i = 0; i < V; i++)
+    {
+        for(int j = 0; j < V; j++)
+        {
+            printf("%d ", cpu_rflowmtx[IDX(i,j)]);
+        }
+        printf("\n");
+    }
+
+    printf("\nAdj mtx :\n");
+    for(int i = 0; i < V; i++)
+    {
+        for(int j = 0; j < V; j++)
+        {
+            printf("%d ", cpu_adjmtx[IDX(i,j)]);
+        }
+        printf("\n");
+    }
+}
+
 
 void readgraph(int V, int E, int source, int sink, int *cpu_height, int *cpu_excess_flow, int *cpu_adjmtx, int *cpu_rflowmtx)
 {
@@ -316,6 +352,8 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
         // copying height values to CUDA device global memory
         cudaMemcpy(gpu_height,cpu_height,V*sizeof(int),cudaMemcpyHostToDevice);
 
+        printf("Invoking kernel\n");
+
         // invoking the push_relabel_kernel
         push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(V,gpu_height,gpu_excess_flow,gpu_adjmtx,gpu_rflowmtx);
 
@@ -324,9 +362,15 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
         cudaMemcpy(cpu_excess_flow,gpu_excess_flow,V*sizeof(int),cudaMemcpyDeviceToHost);
         cudaMemcpy(cpu_rflowmtx,gpu_rflowmtx,V*V*sizeof(int),cudaMemcpyDeviceToHost);
 
+        printf("After invoking\n");
+        print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
+        printf("Excess total : %d\n",*Excess_total);
         // perform the global_relabel routine on host
         global_relabel(V,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total,mark,scanned);
 
+        printf("\nAfter global relabel\n");
+        print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
+        printf("Excess total : %d\n",*Excess_total);
     }
 
 }
@@ -369,10 +413,14 @@ int main(int argc, char **argv)
     // readgraph
     readgraph(V,E,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx);
 
+    print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
+
     // time start
 
     // invoking the preflow function to initialise values in host
     preflow(V,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total);
+
+    print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
 
     // copying host data to CUDA device global memory
     cudaMemcpy(gpu_height,cpu_height,V*sizeof(int),cudaMemcpyHostToDevice);
