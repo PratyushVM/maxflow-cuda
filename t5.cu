@@ -214,7 +214,7 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
         cudaMemcpy(cpu_rflowmtx,gpu_rflowmtx,V*V*sizeof(int),cudaMemcpyDeviceToHost);
 
         // perform the global_relabel routine on host
-        global_relabel(V,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total,mark,scan);
+        global_relabel(V,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total,mark,scanned);
 
     }
 
@@ -239,21 +239,91 @@ void global_relabel(int V, int source, int sink, int *cpu_height, int *cpu_exces
             }
         }
 
-        // performing backwards bfs from sink and assigning height value with each vertex's BFS tree level
+        // performing backwards bfs from sink and assigning height values with each vertex's BFS tree level
         
         // declaring the Queue 
         std::list<int> Queue;
 
-        // declaring variables to iterate over nodes for the backwards bfs
-        int x,y;
-
+        // declaring variables to iterate over nodes for the backwards bfs and to store current tree level
+        int x,y,current;
+        
+        // initialisation of the scanned array with false, before performing backwards bfs
         for(int i = 0; i < V; i++)
         {
             scanned[i] = false;
         }
 
+        // Enqueueing the sink and set scan(sink) to true 
         Queue.push_back(sink);
         scanned[sink] = true;
+
+        // bfs routine and assigning of height values with tree level values
+        while(!Queue.empty())
+        {
+            // dequeue
+            x = Queue.front();
+            Queue.pop_front();
+
+            // capture value of current level
+            current = cpu_height[x];
+            
+            // increment current value
+            current = current + 1;
+
+            for(y = 0; y < V; y++)
+            {
+                // for all (y,x) belonging to E_f (residual graph)
+                if(cpu_rflowmtx[IDX(y,x)] > 0)
+                {
+                    // if y is not scanned
+                    if(scanned[y] == false)
+                    {
+                        // assign current as height of y node
+                        cpu_height[y] = current;
+
+                        // mark scanned(y) as true
+                        scanned[y] = true;
+
+                        // Enqueue y
+                        Queue.push_back(y);
+                    }
+                }
+            }
+
+        }
+
+        // declaring and initialising boolean variable for checking if all nodes are relabeled
+        bool if_all_are_relabeled = true;
+
+        for(int i = 0; i < V; i++)
+        {
+            if(scanned[i] == false)
+            {
+                if_all_are_relabeled = false;
+                break;
+            }
+        }
+
+        // if not all nodes are relabeled
+        if(if_all_are_relabeled == false)
+        {
+            // for all nodes
+            for(int i = 0; i < V; i++)
+            {
+                // if i'th node is not marked or relabeled
+                if( !( (scanned[i] == true) || (mark[i] == true) ) )
+                {
+                    // mark i'th node
+                    mark[i] = true;
+
+                    /* decrement excess flow of i'th node from Excess_total
+                     * This shows that i'th node is not scanned now and needs to be marked, thereby no more contributing to Excess_total
+                     */
+
+                    Excess_total = Excess_total - cpu_excess_flow[i];
+                }
+            }
+        }
 
     }
 
@@ -315,11 +385,20 @@ int main(int argc, char **argv)
     // print value
     printf("The maximum flow value of this flow network is %d\n",cpu_excess_flow[sink]);
 
-    // free host memory
-
     // free device memory
-
-
+    cudaFree(gpu_height);
+    cudaFree(gpu_excess_flow);
+    cudaFree(gpu_adjmtx);
+    cudaFree(gpu_rflowmtx);
+    
+    // free host memory
+    free(cpu_height);
+    free(cpu_excess_flow);
+    free(cpu_adjmtx);
+    free(cpu_rflowmtx);
+    free(Excess_total);
+    
+    // return 0 and end program
     return 0;
 
 }
