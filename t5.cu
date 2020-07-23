@@ -80,7 +80,7 @@ void readgraph(int V, int E, int source, int sink, int *cpu_height, int *cpu_exc
          * This is why residual flow is not initialised during preflow
          */
 
-        if( (e2 != source) && (e1 != sink) )
+        if( (e2 != source) || (e1 != sink) )
         {
             cpu_adjmtx[IDX(e1,e2)] = cp;
             cpu_rflowmtx[IDX(e1,e2)] = cp;    
@@ -133,8 +133,11 @@ __global__ void push_relabel_kernel(int V, int *gpu_height, int *gpu_excess_flow
     // u'th node is operated on by the u'th thread
     unsigned int u = (blockIdx.x*blockDim.x) + threadIdx.x;
 
+    printf("U : %d\nV : %d\n",u,V);
+
     if(u < V)
     {
+        printf("Thread id : %d\n",u);
         // cycle value is set to KERNEL_CYCLES as required 
         int cycle = KERNEL_CYCLES;
 
@@ -155,6 +158,7 @@ __global__ void push_relabel_kernel(int V, int *gpu_height, int *gpu_excess_flow
             {
                 e_dash = gpu_excess_flow[u];
                 h_dash = INF;
+                v_dash = NULL;
 
                 for(v = 0; v < V; v++)
                 {
@@ -356,6 +360,9 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
 
         // invoking the push_relabel_kernel
         push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(V,gpu_height,gpu_excess_flow,gpu_adjmtx,gpu_rflowmtx);
+
+        cudaDeviceSynchronize();
+
 
         // copying height, excess flow and residual flow values from device to host memory
         cudaMemcpy(cpu_height,gpu_height,V*sizeof(int),cudaMemcpyDeviceToHost);
