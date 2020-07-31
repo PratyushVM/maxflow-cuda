@@ -21,6 +21,10 @@ In file "edgelist.txt", edge input to be given in the form :
 ...
 
 ```
+```
+To clean, run :
+make clean
+```
 
 ## Contents
 1. Makefile
