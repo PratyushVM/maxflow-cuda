@@ -39,8 +39,7 @@ make clean
     <li>push_relabel.cu - contains the host push relabel routine
     <li>push_relabel_kernel.cu - contains the kernel invoked as part of the push_relabel routine
     <li>global_relabel.cu - contains the heuristic host global relabel routine
-    <li>serial_edmondkarp.cpp - contains a serial implementation of the edmond karp algorithm, an alternate serial solution (not used in check)
-
+    </ul>
 ## References
 
 1. <a href = "https://www.sciencedirect.com/science/article/pii/B9780123859631000058">Efficient CUDA Algorithms for the Maximum Network Flow Problem</a>
