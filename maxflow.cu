@@ -128,7 +128,7 @@ void preflow(int V, int source, int sink, int *cpu_height, int *cpu_excess_flow,
 
 }
 
-__global__ void push_relabel_kernel(int V, int *gpu_height, int *gpu_excess_flow, int *gpu_adjmtx,int *gpu_rflowmtx)
+__global__ void push_relabel_kernel(int V, int source, int sink, int *gpu_height, int *gpu_excess_flow, int *gpu_adjmtx,int *gpu_rflowmtx)
 {
     // u'th node is operated on by the u'th thread
     unsigned int u = (blockIdx.x*blockDim.x) + threadIdx.x;
@@ -154,7 +154,7 @@ __global__ void push_relabel_kernel(int V, int *gpu_height, int *gpu_excess_flow
 
         while(cycle > 0)
         {
-            if( (gpu_excess_flow[u] > 0) && (gpu_height[u] < V) )
+            if( (gpu_excess_flow[u] > 0) && (u != sink) )
             {
                 e_dash = gpu_excess_flow[u];
                 h_dash = INF;
@@ -362,7 +362,7 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
         printf("Invoking kernel\n");
 
         // invoking the push_relabel_kernel
-        push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(V,gpu_height,gpu_excess_flow,gpu_adjmtx,gpu_rflowmtx);
+        push_relabel_kernel<<<number_of_blocks_nodes,threads_per_block>>>(V,source,sink,gpu_height,gpu_excess_flow,gpu_adjmtx,gpu_rflowmtx);
 
         cudaDeviceSynchronize();
 
