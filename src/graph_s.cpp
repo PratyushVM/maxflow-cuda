@@ -1,70 +1,4 @@
-#include<bits/stdc++.h>
-using namespace std;
-
-#define vi vector<int>
-#define pb push_back
-#define pii pair<int,int>
-#define mp make_pair
-#define ff first
-#define ss second
-
-// Structure representing a Vertex
-struct Vertex
-{
-    int height; // height of node
-    int ex_flow; // excess flow 
-
-    // constructor function
-    Vertex(int h, int e)
-    {
-        this->height = h;
-        this->ex_flow = e;
-    }
-};
-
-// Structure representing an Edge
-struct Edge_s
-{
-    int u,v; // edge from node u to node v
-    int flow; // current flow
-    int capacity; // capacity of edge
-
-    // constructor function 
-    Edge_s(int f, int c, int a, int b)
-    {
-        this->u = a;
-        this->v = b;
-        this->capacity = c;
-        this->flow = f;
-    }
-};
-
-class Graph_s
-{
-    int V; // number of vertices
-    vector<Vertex> vertex; // vector of vertices
-    vector<Edge_s> edge; // vector of edges
-
-    // function to push excess flow from u
-    bool push(int u);
-
-    // function to relabel a vertex u
-    void relabel(int u);
-
-    // function to initialize preflow
-    void preflow(int s);
-
-    // function to reverse edge
-    void updatereverseflow(int i, int flow);
-
-public:
-    Graph_s(int v); // constructor to create graph with v vertices
-
-    void addedge(int u, int v, int w); // function to add an edge
-
-    int maxflow(int s, int t); // function that returns maximum flow from source s to sink t
-
-};
+#include "../include/serial_graph.h"
 
 Graph_s::Graph_s(int v)
 {
@@ -219,24 +153,11 @@ int Graph_s::maxflow(int s, int t)
     return vertex[t].ex_flow;
 }
 
-// Driver program to test above functions 
-int main() 
+// check function to return value from serial implementation
+int check(int V, int E, int source, int sink) 
 { 
-    int V = 4; 
-    int E = 3;
-    Graph_s g(V); 
-  
-    // Creating flow network 
-    /*g.addedge(0, 1, 16); 
-    g.addedge(0, 2, 13); 
-    g.addedge(1, 2, 10); 
-    g.addedge(2, 1, 4); 
-    g.addedge(1, 3, 12); 
-    g.addedge(2, 4, 14); 
-    g.addedge(3, 2, 9); 
-    g.addedge(3, 5, 20); 
-    g.addedge(4, 3, 7); 
-    g.addedge(4, 5, 4);*/
+    
+    Graph_s g(V);   
 
     FILE *fp = fopen("edgelist.txt","r");
 
@@ -257,10 +178,10 @@ int main()
     }
   
     // Initialize source and sink 
-    int s = 0, t = 3; 
+    int s = source, t = sink; 
   
-    cout << "Maximum flow is " << g.maxflow(s, t); 
-    return 0; 
+    //cout << "Maximum flow is " << g.maxflow(s, t); 
+    return g.maxflow(s,t) ; 
 } 
 
 
