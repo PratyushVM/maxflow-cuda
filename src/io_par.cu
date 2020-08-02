@@ -64,7 +64,7 @@ void readgraph(int V, int E, int source, int sink, int *cpu_height, int *cpu_exc
         e2 = atoi(buf2);
         cp = atoi(buf3);
 
-        /* Adding edge to graph if it does not have source as to node, or sink as from node
+        /* Adding edges to the graph 
          * rflow - residual flow is also updated simultaneously
          * So the graph when prepared already has updated residual flow values
          * This is why residual flow is not initialised during preflow
