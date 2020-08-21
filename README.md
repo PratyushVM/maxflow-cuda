@@ -1,5 +1,5 @@
 # maxflow-cuda
-Implementation of the maximum network flow problem in CUDA. Uses the parallel push-relabel algorithm, as illustrated in the <a href = "https://www.sciencedirect.com/science/article/pii/B9780123859631000058"> paper</a> by Jiadong Wu, Zhengyu He and Bo Hong.
+Implementation of the maximum network flow problem in CUDA. Uses the parallel push-relabel algorithm, as illustrated in this <a href = "https://www.sciencedirect.com/science/article/pii/B9780123859631000058"> paper</a> .
 
 The program depicts the values of height, excess flow and the residual flow for each node at each iteration, along with the maximum flow obtained. It also runs a serial version of the push relabel algorithm and verifies the output.
 
