@@ -3,7 +3,7 @@
 
 int main(int argc, char **argv)
 {
-    // checking if sufficient number of arguments are passed in CLI
+    // checking if sufficient number of arguments (4) are passed in CLI
     if(argc != 5)
     {
         printf("Invalid number of arguments passed during execution\n");
@@ -39,14 +39,14 @@ int main(int argc, char **argv)
     // readgraph
     readgraph(V,E,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx);
 
-    print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
+    //print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
 
     // time start
 
     // invoking the preflow function to initialise values in host
     preflow(V,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total);
 
-    print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
+    //print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
 
     // copying host data to CUDA device global memory
     cudaMemcpy(gpu_height,cpu_height,V*sizeof(int),cudaMemcpyHostToDevice);

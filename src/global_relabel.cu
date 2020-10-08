@@ -18,7 +18,8 @@ void global_relabel(int V, int source, int sink, int *cpu_height, int *cpu_exces
                 }
             }
         }
-
+    }
+        printf("Prebfs\n");
         // performing backwards bfs from sink and assigning height values with each vertex's BFS tree level
         
         // declaring the Queue 
@@ -36,7 +37,7 @@ void global_relabel(int V, int source, int sink, int *cpu_height, int *cpu_exces
         // Enqueueing the sink and set scan(sink) to true 
         Queue.push_back(sink);
         scanned[sink] = true;
-
+        cpu_height[sink] = 0;
         // bfs routine and assigning of height values with tree level values
         while(!Queue.empty())
         {
@@ -71,7 +72,7 @@ void global_relabel(int V, int source, int sink, int *cpu_height, int *cpu_exces
             }
 
         }
-
+        printf("Pre check\n");
         // declaring and initialising boolean variable for checking if all nodes are relabeled
         bool if_all_are_relabeled = true;
 
@@ -104,8 +105,5 @@ void global_relabel(int V, int source, int sink, int *cpu_height, int *cpu_exces
                 }
             }
         }
-
-    }
-
 
 }
