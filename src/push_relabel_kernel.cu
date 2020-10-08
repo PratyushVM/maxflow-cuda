@@ -9,7 +9,7 @@ __global__ void push_relabel_kernel(int V, int source, int sink, int *gpu_height
 
     if(u < V)
     {
-        printf("Thread id : %d\n",u);
+        //printf("Thread id : %d\n",u);
         // cycle value is set to KERNEL_CYCLES as required 
         int cycle = KERNEL_CYCLES;
 
@@ -26,7 +26,7 @@ __global__ void push_relabel_kernel(int V, int source, int sink, int *gpu_height
 
         while(cycle > 0)
         {
-            if( (gpu_excess_flow[u] > 0) && (u != sink) )
+            if( (gpu_excess_flow[u] > 0) && (gpu_height[u] < V) )
             {
                 e_dash = gpu_excess_flow[u];
                 h_dash = INF;

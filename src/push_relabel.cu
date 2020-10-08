@@ -41,13 +41,13 @@ void push_relabel(int V, int source, int sink, int *cpu_height, int *cpu_excess_
         cudaMemcpy(cpu_rflowmtx,gpu_rflowmtx,V*V*sizeof(int),cudaMemcpyDeviceToHost);
 
         printf("After invoking\n");
-        print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
+        //print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
         printf("Excess total : %d\n",*Excess_total);
         // perform the global_relabel routine on host
         global_relabel(V,source,sink,cpu_height,cpu_excess_flow,cpu_adjmtx,cpu_rflowmtx,Excess_total,mark,scanned);
 
         printf("\nAfter global relabel\n");
-        print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
+        //print(V,cpu_height,cpu_excess_flow,cpu_rflowmtx,cpu_adjmtx);
         printf("Excess total : %d\n",*Excess_total);
     }
 
